@@ -1,17 +1,18 @@
 package com.example.recipeapp
 
-import android.Manifest
-import android.Manifest.*
+import android.Manifest.permission
 import android.app.Activity
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.text.TextUtils
 import android.util.Log
 import android.view.View
+import android.webkit.MimeTypeMap
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Toast
@@ -19,11 +20,15 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.bumptech.glide.Glide
 import com.google.android.gms.tasks.OnFailureListener
 import com.google.android.gms.tasks.OnSuccessListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import com.google.firebase.storage.UploadTask
 
 class CreateReceipeActivity : AppCompatActivity() {
 
@@ -44,6 +49,12 @@ class CreateReceipeActivity : AppCompatActivity() {
     var PERMISSION_CODE_WRITE: Int = 1002
     private lateinit var cameraPerssion: Array<String>
     private lateinit var storagePermission: Array<String>
+    private lateinit var filePath: Uri
+    val STORAGE_PATH_UPLOADS = "uploads/"
+    val DATABASE_PATH_UPLOADS = "uploads"
+    var firebaseStorage: FirebaseStorage? = null
+    var uploadTask: UploadTask? = null
+    var storageReference: StorageReference? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +62,8 @@ class CreateReceipeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_create_receipe)
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
+        firebaseStorage = FirebaseStorage.getInstance()
+        storageReference = firebaseStorage!!.getReference("Receipe-images")
 
         mFoodDesc = findViewById(R.id.foodDescription)
         mFoodTitle = findViewById(R.id.foodName)
@@ -154,19 +167,45 @@ class CreateReceipeActivity : AppCompatActivity() {
         builder.show()
     }
 
+    fun GetFileExtension(uri: Uri?): String? {
+        val contentResolver = contentResolver
+        val mimeTypeMap = MimeTypeMap.getSingleton()
+        return mimeTypeMap.getExtensionFromMimeType(contentResolver.getType(uri!!))
+    }
+
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
 
         if (resultCode == Activity.RESULT_OK && requestCode == TAKE_PHOTO && data != null) {
-            //mImage.setImageBitmap(data.extras?.get("data") as Bitmap)
+
             var photo = data.extras!!["data"] as Bitmap?
             photo = Bitmap.createScaledBitmap(photo!!, 80, 80, false)
-          mImage.setImageBitmap(photo)
+            mImage.setImageBitmap(photo)
+
+
         } else if (resultCode == Activity.RESULT_OK && requestCode == PICK_PHOTO) {
-//            val selectedImage: Bitmap? = data!!.extras!!["data"] as Bitmap?
-//            mImage.setImageBitmap(selectedImage)
-            mImage.setImageURI(data?.data)
+            filePath = data?.data!!
+            uploadTask = storageReference!!.child(
+                STORAGE_PATH_UPLOADS + System.currentTimeMillis() + "." + GetFileExtension(filePath)+firebaseUser?.uid).putFile(filePath)
+            uploadTask!!.addOnSuccessListener { taskSnapshot ->
+                taskSnapshot.storage.downloadUrl
+                    .addOnCompleteListener { task ->
+                        Image = task.result.toString()
+                        Glide.with(this).load(Image).into(mImage)
+
+                        //mImage.setImageURI(data?.data)
+                        Log.i("ssii", Image)
+                    }
+            }.addOnFailureListener { e -> Log.i("ssii", e.localizedMessage) }
+                .addOnProgressListener { taskSnapshot ->
+                    Log.i(
+                        "ssii",
+                        taskSnapshot.uploadSessionUri.toString()
+                    )
+                }
+
         }
     }
 
