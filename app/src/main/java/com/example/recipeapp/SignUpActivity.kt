@@ -20,13 +20,13 @@ class SignUpActivity : AppCompatActivity(), View.OnClickListener, OnCompleteList
     private lateinit var auth: FirebaseAuth
     private lateinit var mEmail: EditText
     private lateinit var mPassword: EditText
-    private lateinit var mFirstName:EditText
-    private lateinit var mLastName:EditText
-    private lateinit var db:FirebaseFirestore
-    var stringFirstName :String = ""
+    private lateinit var mFirstName: EditText
+    private lateinit var mLastName: EditText
+    private lateinit var db: FirebaseFirestore
+    var stringFirstName: String = ""
     val firebaseUser = FirebaseAuth.getInstance().currentUser
 
-    private lateinit var mButton :Button
+    private lateinit var mButton: Button
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,9 +45,8 @@ class SignUpActivity : AppCompatActivity(), View.OnClickListener, OnCompleteList
     }
 
 
-
     override fun onClick(v: View?) {
-        val intent = Intent(this,LoginActivity::class.java)
+        val intent = Intent(this, LoginActivity::class.java)
         startActivity(intent)
 
     }
@@ -55,7 +54,7 @@ class SignUpActivity : AppCompatActivity(), View.OnClickListener, OnCompleteList
     fun btnSignUp(view: View) {
         val stringEmail = mEmail.text.toString().trim()
         val stringPassword = mPassword.text.toString().trim()
-         stringFirstName = mFirstName.text.toString().trim()
+        stringFirstName = mFirstName.text.toString().trim()
         val stringLastName = mLastName.text.toString().trim()
 
         Log.e("sss", stringEmail + stringPassword)
@@ -71,21 +70,22 @@ class SignUpActivity : AppCompatActivity(), View.OnClickListener, OnCompleteList
     }
 
     override fun onComplete(task: Task<AuthResult>) {
-            if (task.isSuccessful) {
-                val newUser = firebaseUser?.uid?.let { UserInfo(stringFirstName, it) }
-                if (newUser != null) {
-                    db.collection("users").document(auth.currentUser?.uid.toString()).set(newUser).addOnSuccessListener { documentRef->
+        if (task.isSuccessful) {
+            val newUser = firebaseUser?.uid?.let { UserInfo(stringFirstName, it) }
+            if (newUser != null) {
+                db.collection("users").document(auth.currentUser?.uid.toString()).set(newUser)
+                    .addOnSuccessListener { documentRef ->
                         Log.d("jjjj", newUser.name)
                     }
-                }
-                Toast.makeText(this, "Successfully Logged In", Toast.LENGTH_LONG).show()
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                finish()
-            } else {
-                Log.w("error", task.exception)
-                Toast.makeText(this, "Registration Failed", Toast.LENGTH_LONG).show()
             }
+            Toast.makeText(this, "Successfully Logged In", Toast.LENGTH_LONG).show()
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            finish()
+        } else {
+            Log.w("error", task.exception)
+            Toast.makeText(this, "Registration Failed", Toast.LENGTH_LONG).show()
+        }
 
     }
 

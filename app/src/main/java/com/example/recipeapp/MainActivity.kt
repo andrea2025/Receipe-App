@@ -1,88 +1,91 @@
 package com.example.recipeapp
 
 import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.gms.tasks.OnCompleteListener
+import com.example.recipeapp.FoodAdapter.ItemClickListener
+import com.firebase.ui.firestore.FirestoreRecyclerOptions
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
-import com.google.firebase.firestore.DocumentReference
-import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.*
 
-class MainActivity : AppCompatActivity(), FoodAdapter.ItemClickListener {
+class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var linearLayoutManager: LinearLayoutManager
-    private val food: ArrayList<FoodClass> = ArrayList()
-    lateinit var text:TextView
+    lateinit var text: TextView
     private lateinit var db: FirebaseFirestore
-    private var userId:String  =""
-    private lateinit var reference: DocumentReference
+    private var userId: String = ""
+    private lateinit var reference: CollectionReference
+    private lateinit var document: DocumentReference
+    private lateinit var auth: FirebaseAuth
+    var food: FoodAdapter? = null
+    lateinit var query: Query
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         db = FirebaseFirestore.getInstance()
-        val user= FirebaseAuth.getInstance().currentUser
+        auth = FirebaseAuth.getInstance()
         recyclerView = findViewById(R.id.foodRecycler)
         text = findViewById<TextView>(R.id.mName)
-
-        if (user != null) {
-            userId = user.uid
-            Log.e("null",userId)
-        }
+        reference = db.collection("users")
 
         linearLayoutManager = LinearLayoutManager(this)
         recyclerView.layoutManager = linearLayoutManager
-        recyclerView.adapter = FoodAdapter(this, food, this)
 
-        reference = db.collection("users").document(user?.uid.toString())
-            .collection("Receipe").document()
-
-            reference.get().addOnCompleteListener{
-            task->
-            if (task.isSuccessful) {
-                val document = task.result?.data
-                if (document != null){
-                    Log.d("result", "DocumentSnapshot data: " + task.result?.data)
-                }else{
-                    Log.d("result", "DocumentSnapshot data: " + task.result?.data)
-                }
-        }
-        }
+        getFoodReceipe()
         getDataOneTime()
+        setUpAdapter()
+    }
+
+    private fun getFoodReceipe() {
+        query = reference.document(auth.currentUser?.uid.toString()).collection("Receipe")
+        Log.i("QUERY", query.get().toString())
+        val options = FirestoreRecyclerOptions.Builder<FoodClass>()
+            .setLifecycleOwner(this).setQuery(query, FoodClass::class.java)
+            .build()
+
+        food = FoodAdapter(this, options, object : ItemClickListener {
+            override fun onItemClick(foodItem: Int) {
+                var title = options.snapshots.get(foodItem).foodTitle
+                var desc = options.snapshots.get(foodItem).description
+                Log.i("QUERY", title + desc)
+                val fragment = FoodDetailFragment.newInstance()
+                val bundle = Bundle()
+                bundle.putString("title", title)
+                bundle.putString("desc", desc)
+                fragment.arguments = bundle
+                fragment.show(supportFragmentManager, "dialog")
+            }
+        })
+    }
+
+
+    fun setUpAdapter() {
+        recyclerView.adapter = food
+        food?.startListening()
     }
 
 
     private fun getDataOneTime() {
-
-        //getting the data onetime
-        val docRef = db.collection("users").document(userId)
-        docRef.addSnapshotListener{value: DocumentSnapshot?,
-                                   _error: FirebaseFirestoreException? ->
+        val docRef = db.collection("users").document(auth.currentUser?.uid.toString())
+        docRef.addSnapshotListener { value: DocumentSnapshot?,
+                                     _error: FirebaseFirestoreException? ->
             val user = value?.toObject(UserInfo::class.java)
             if (user != null) {
                 text.setText(user.name)
                 Log.e("detail", "user data is changed" + user.name)
             }
-            //Log.i("error", error?.localizedMessage)
+
         }
 
     }
 
-
-    override fun onItemClick(foodItem: FoodClass) {
-        val intent = Intent(this, FoodDetailActivity::class.java)
-        startActivity(intent)
-        finish()
-    }
 
     fun CreateRecipe(view: View) {
         val intent = Intent(this, CreateReceipeActivity::class.java)
